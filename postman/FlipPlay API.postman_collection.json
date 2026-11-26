@@ -1,0 +1,106 @@
+{
+  "info": {
+    "name": "FlipPlay API",
+    "description": "Happy path dan failure path untuk rubrik demo FlipPlay. Jalankan server Laravel di port 8000.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8000/api" },
+    { "key": "user_id", "value": "1" },
+    { "key": "media_id", "value": "1" }
+  ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const expected = {",
+          "  'GET - Daftar media dan pencarian judul': 200,",
+          "  'GET - Detail media dan relasi pengguna': 200,",
+          "  'POST - Tambah media baru (happy path)': 201,",
+          "  'POST - Judul kosong (failure 422)': 422,",
+          "  'POST - Judul duplikat (failure 422)': 422,",
+          "  'PATCH - Ubah judul media (happy path)': 200,",
+          "  'GET - Media tidak ditemukan (failure 404)': 404,",
+          "  'DELETE - Hapus media (happy path; paling akhir)': 204,",
+          "  'GET - Lihat koleksi pengguna': 200,",
+          "  'POST - Tambahkan media ke koleksi (happy path)': 201,",
+          "  'POST - Tambahkan media sama lagi (failure 409)': 409,",
+          "  'DELETE - Hapus media dari koleksi (happy path)': 200,",
+          "  'DELETE - Hapus media yang tidak ada (failure 404)': 404",
+          "};",
+          "pm.test('Status sesuai skenario', () => pm.response.to.have.status(expected[pm.info.requestName]));"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Media CRUD",
+      "item": [
+        {
+          "name": "GET - Daftar media dan pencarian judul",
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/media?search=Pelangi" }
+        },
+        {
+          "name": "POST - Tambah media baru (happy path)",
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["const body = JSON.parse(pm.request.body.raw);", "body.title = 'Demo Postman FlipPlay ' + Date.now();", "pm.request.body.update({ mode: 'raw', raw: JSON.stringify(body) });"] } },
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 201', () => pm.response.to.have.status(201));", "const body = pm.response.json();", "if (body.data && body.data.id) pm.collectionVariables.set('media_id', body.data.id);"] } }
+          ],
+          "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"title\": \"Demo Postman FlipPlay\",\n  \"type\": \"game\",\n  \"creator\": \"Demo Creator\",\n  \"release_year\": 2024,\n  \"platform\": \"PC\"\n}" }, "url": "{{base_url}}/media" }
+        },
+        {
+          "name": "GET - Detail media dan relasi pengguna",
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/media/{{media_id}}" }
+        },
+        {
+          "name": "POST - Judul kosong (failure 422)",
+          "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"title\": \"\",\n  \"type\": \"film\",\n  \"creator\": \"Demo Creator\",\n  \"release_year\": 2024,\n  \"duration_minutes\": 90\n}" }, "url": "{{base_url}}/media" }
+        },
+        {
+          "name": "POST - Judul duplikat (failure 422)",
+          "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"title\": \"Laskar Pelangi\",\n  \"type\": \"film\",\n  \"creator\": \"Riri Riza\",\n  \"release_year\": 2008,\n  \"duration_minutes\": 124\n}" }, "url": "{{base_url}}/media" }
+        },
+        {
+          "name": "PATCH - Ubah judul media (happy path)",
+          "request": { "method": "PATCH", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"title\": \"Demo Postman FlipPlay Updated\"\n}" }, "url": "{{base_url}}/media/{{media_id}}" }
+        },
+        {
+          "name": "GET - Media tidak ditemukan (failure 404)",
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/media/999999" }
+        }
+      ]
+    },
+    {
+      "name": "Koleksi Pengguna",
+      "item": [
+        {
+          "name": "GET - Lihat koleksi pengguna",
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/users/{{user_id}}/collection" }
+        },
+        {
+          "name": "POST - Tambahkan media ke koleksi (happy path)",
+          "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/users/{{user_id}}/collection/{{media_id}}" }
+        },
+        {
+          "name": "POST - Tambahkan media sama lagi (failure 409)",
+          "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/users/{{user_id}}/collection/{{media_id}}" }
+        },
+        {
+          "name": "DELETE - Hapus media dari koleksi (happy path)",
+          "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/users/{{user_id}}/collection/{{media_id}}" }
+        },
+        {
+          "name": "DELETE - Hapus media yang tidak ada (failure 404)",
+          "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/users/{{user_id}}/collection/{{media_id}}" }
+        },
+        {
+          "name": "DELETE - Hapus media (happy path; paling akhir)",
+          "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/media/{{media_id}}" }
+        }
+      ]
+    }
+  ]
+}
