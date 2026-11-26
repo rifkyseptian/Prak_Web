@@ -43,11 +43,14 @@ Untuk melihat daftar endpoint API, buka jendela PowerShell kedua di folder proje
 
 ### Mencoba lewat Postman
 
-1. Jalankan server dengan `php artisan serve` dan biarkan terminalnya tetap terbuka.
-2. Di Postman, pilih **Import**, lalu pilih `postman/FlipPlay API.postman_collection.json`.
-3. Buka collection **FlipPlay API**. Pastikan variable `base_url` bernilai `http://127.0.0.1:8000/api` dan `user_id` bernilai `1` (ID pengguna hasil seed). Variable `media_id` dan `test_title` akan diisi selama pengujian.
-4. Pilih **Run collection** lalu jalankan request sesuai urutan. Jangan mengubah urutan; request bergantung pada media yang dibuat pada awal alur.
-5. Buka tab **Test Results**. Setiap request harus berstatus **PASS**. Collection memeriksa status HTTP, bentuk error JSON, dan keberadaan media serta relasi pengguna setelah attach.
+Cara termudah adalah mengimpor collection yang sudah berisi request, body, variable, dan pemeriksaan hasil. Jadi, Anda tidak perlu mengetik 18 request satu per satu.
+
+1. Jalankan server dengan `php artisan serve`; biarkan terminalnya terbuka.
+2. Buka Postman, klik **Import** → **Files**, lalu pilih `postman/FlipPlay API.postman_collection.json` dari folder project.
+3. Setelah collection **FlipPlay API** muncul di panel kiri, klik nama collection tersebut.
+4. Pastikan variable `base_url` bernilai `http://127.0.0.1:8000/api` dan `user_id` bernilai `1` (ID pengguna hasil seed). Jangan ubah variable `media_id` atau `test_title`; request akan mengisinya otomatis.
+5. Klik **Run** pada collection, lalu klik **Run FlipPlay API** untuk menjalankan semua request sesuai urutan. Jangan ubah urutannya karena request berikut memakai ID media dari request tambah media.
+6. Setelah selesai, buka **Test Results**. Setiap request diharapkan berstatus **PASS**. Bila gagal, buka request tersebut dan periksa tab **Body** untuk melihat respons server.
 
 Request tambah media membuat judul unik dengan waktu saat ini dan otomatis menyimpan ID response ke variable `media_id`. Karena itu collection dapat dijalankan ulang tanpa bentrok judul. Request hapus media berada paling akhir dan hanya menghapus media percobaan yang baru dibuat, bukan data seed.
 
@@ -77,6 +80,50 @@ Format response gagal yang dicek: validasi `422` berisi object `errors` (misalny
 | 18 | DELETE ID `999999` | Uji destroy media yang tidak ada | `404`; response memiliki `message` |
 
 Request yang mengirim JSON menyertakan header `Accept: application/json` dan `Content-Type: application/json`. Kalau status berbeda, periksa server masih berjalan, database sudah di-seed, serta variable `base_url` dan `user_id` benar. Detail pemeriksaan otomatis ada pada tab **Scripts** di collection.
+
+#### Jika membuat request satu per satu
+
+Untuk setiap request baru, pilih method (GET/POST/PATCH/DELETE), ketik URL, lalu klik **Send**. Untuk POST dan PATCH, buka **Body** → pilih **raw** → pilih format **JSON**. Pada tab **Headers**, tambahkan:
+
+| Key | Value | Dipakai untuk |
+| --- | --- | --- |
+| `Accept` | `application/json` | Semua request, terutama agar error tampil sebagai JSON |
+| `Content-Type` | `application/json` | Request POST dan PATCH yang mengirim body |
+
+Contoh membuat media secara manual:
+
+- Method: `POST`
+- URL: `http://127.0.0.1:8000/api/media`
+- Body → raw → JSON:
+
+```json
+{
+  "title": "Media Uji Manual 01",
+  "type": "film",
+  "creator": "Demo Creator",
+  "release_year": 2024,
+  "duration_minutes": 100
+}
+```
+
+Klik **Send**. Jika berhasil, statusnya `201`. Salin angka `data.id` dari response; angka itu dipakai sebagai `{media_id}` di URL koleksi dan sebagai `{id}` untuk detail/update/hapus. Untuk menguji duplikat, kirim lagi body dengan judul yang sama: hasilnya `422`.
+
+Contoh memperbarui media yang baru dibuat:
+
+- Method: `PATCH`
+- URL: `http://127.0.0.1:8000/api/media/{media_id}` (ganti `{media_id}` dengan angka ID dari response POST)
+- Body → raw → JSON: `{"title":"Media Uji Manual 01 Revisi"}`
+- Hasil berhasil: `200`.
+
+Contoh menguji relasi koleksi pengguna demo:
+
+- Attach: `POST http://127.0.0.1:8000/api/users/1/collection/{media_id}` → `201`.
+- Ulangi URL yang sama untuk menguji duplikat → `409`.
+- Lihat koleksi: `GET http://127.0.0.1:8000/api/users/1/collection` → `200`.
+- Detach: `DELETE http://127.0.0.1:8000/api/users/1/collection/{media_id}` → `200`.
+- Ulangi DELETE untuk memastikan relasi sudah tidak ada → `404`.
+
+Untuk update/hapus, gunakan ID milik media percobaan. Jalankan DELETE media (`DELETE /api/media/{media_id}`) paling akhir karena data tersebut akan terhapus. Jangan gunakan ID media seed jika ingin mempertahankan data contoh.
 
 ## Endpoint API
 
