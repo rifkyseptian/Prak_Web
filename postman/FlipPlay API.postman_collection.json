@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "FlipPlay API",
-    "description": "Happy path dan failure path untuk rubrik demo FlipPlay. Jalankan server Laravel di port 8000.",
+    "description": "Collection uji FlipPlay API. Jalankan php artisan serve, lalu jalankan request sesuai urutan. Tiap request memeriksa status HTTP yang diharapkan. media_id diperbarui otomatis oleh request tambah media.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -20,17 +20,46 @@
           "  'GET - Detail media dan relasi pengguna': 200,",
           "  'POST - Tambah media baru (happy path)': 201,",
           "  'POST - Judul kosong (failure 422)': 422,",
+          "  'POST - Film tanpa durasi (failure 422)': 422,",
           "  'POST - Judul duplikat (failure 422)': 422,",
           "  'PATCH - Ubah judul media (happy path)': 200,",
+          "  'PATCH - Media tidak ditemukan (failure 404)': 404,",
           "  'GET - Media tidak ditemukan (failure 404)': 404,",
           "  'DELETE - Hapus media (happy path; paling akhir)': 204,",
+          "  'DELETE - Media tidak ditemukan (failure 404)': 404,",
           "  'GET - Lihat koleksi pengguna': 200,",
           "  'POST - Tambahkan media ke koleksi (happy path)': 201,",
           "  'POST - Tambahkan media sama lagi (failure 409)': 409,",
+          "  'GET - Pastikan media tampil di koleksi': 200,",
+          "  'GET - Pastikan relasi pengguna tampil pada detail media': 200,",
           "  'DELETE - Hapus media dari koleksi (happy path)': 200,",
           "  'DELETE - Hapus media yang tidak ada (failure 404)': 404",
           "};",
-          "pm.test('Status sesuai skenario', () => pm.response.to.have.status(expected[pm.info.requestName]));"
+          "const status = expected[pm.info.requestName];",
+          "pm.test('Status sesuai skenario', function () { pm.expect(status, 'Request harus tercatat di daftar skenario').to.exist; pm.response.to.have.status(status); });",
+          "if (status === 422) {",
+          "  const json = pm.response.json();",
+          "  pm.test('Response validasi berisi daftar errors', () => pm.expect(json.errors).to.be.an('object').that.is.not.empty);",
+          "  if (pm.info.requestName === 'POST - Judul kosong (failure 422)' || pm.info.requestName === 'POST - Judul duplikat (failure 422)') pm.test('Error validasi menunjuk field title', () => pm.expect(json.errors).to.have.property('title'));",
+          "  if (pm.info.requestName === 'POST - Film tanpa durasi (failure 422)') pm.test('Error validasi menunjuk duration_minutes', () => pm.expect(json.errors).to.have.property('duration_minutes'));",
+          "}",
+          "if (status === 409 || status === 404) {",
+          "  const json = pm.response.json();",
+          "  pm.test('Response gagal menjelaskan penyebabnya', () => pm.expect(json.message).to.be.a('string').and.not.empty);",
+          "}",
+          "if ((status === 200 || status === 201) && !pm.info.requestName.startsWith('DELETE -')) {",
+          "  const json = pm.response.json();",
+          "  pm.test('Response berhasil memiliki data', () => pm.expect(json).to.have.property('data'));",
+          "}",
+          "if (status === 204) { pm.test('Response 204 tidak memiliki body', () => pm.expect(pm.response.text()).to.eql('')); }",
+          "if (pm.info.requestName === 'GET - Pastikan media tampil di koleksi') {",
+          "  const json = pm.response.json();",
+          "  pm.test('Media yang baru di-attach ada di koleksi', () => pm.expect(json.data.media.map(item => String(item.id))).to.include(String(pm.collectionVariables.get('media_id'))));",
+          "}",
+          "if (pm.info.requestName === 'GET - Pastikan relasi pengguna tampil pada detail media') {",
+          "  const json = pm.response.json();",
+          "  pm.test('Relasi users memuat pengguna demo', () => pm.expect(json.data.users.map(user => String(user.id))).to.include(String(pm.collectionVariables.get('user_id'))));",
+          "}"
         ]
       }
     }
@@ -38,6 +67,7 @@
   "item": [
     {
       "name": "Media CRUD",
+      "description": "Uji daftar dan pencarian, tambah, validasi gagal, detail, update, lalu penghapusan. Request hapus sukses dijalankan paling akhir di folder Koleksi Pengguna.",
       "item": [
         {
           "name": "GET - Daftar media dan pencarian judul",
@@ -46,10 +76,10 @@
         {
           "name": "POST - Tambah media baru (happy path)",
           "event": [
-            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["const body = JSON.parse(pm.request.body.raw);", "body.title = 'Demo Postman FlipPlay ' + Date.now();", "pm.request.body.update({ mode: 'raw', raw: JSON.stringify(body) });"] } },
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["pm.collectionVariables.set('test_title', 'Demo Postman FlipPlay ' + Date.now());"] } },
             { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 201', () => pm.response.to.have.status(201));", "const body = pm.response.json();", "if (body.data && body.data.id) pm.collectionVariables.set('media_id', body.data.id);"] } }
           ],
-          "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"title\": \"Demo Postman FlipPlay\",\n  \"type\": \"game\",\n  \"creator\": \"Demo Creator\",\n  \"release_year\": 2024,\n  \"platform\": \"PC\"\n}" }, "url": "{{base_url}}/media" }
+          "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"title\": \"{{test_title}}\",\n  \"type\": \"game\",\n  \"creator\": \"Demo Creator\",\n  \"release_year\": 2024,\n  \"platform\": \"PC\"\n}" }, "url": "{{base_url}}/media" }
         },
         {
           "name": "GET - Detail media dan relasi pengguna",
@@ -60,12 +90,20 @@
           "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"title\": \"\",\n  \"type\": \"film\",\n  \"creator\": \"Demo Creator\",\n  \"release_year\": 2024,\n  \"duration_minutes\": 90\n}" }, "url": "{{base_url}}/media" }
         },
         {
+          "name": "POST - Film tanpa durasi (failure 422)",
+          "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"title\": \"Film tanpa durasi\",\n  \"type\": \"film\",\n  \"creator\": \"Demo Creator\",\n  \"release_year\": 2024\n}" }, "url": "{{base_url}}/media" }
+        },
+        {
           "name": "POST - Judul duplikat (failure 422)",
           "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"title\": \"Laskar Pelangi\",\n  \"type\": \"film\",\n  \"creator\": \"Riri Riza\",\n  \"release_year\": 2008,\n  \"duration_minutes\": 124\n}" }, "url": "{{base_url}}/media" }
         },
         {
           "name": "PATCH - Ubah judul media (happy path)",
           "request": { "method": "PATCH", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"title\": \"Demo Postman FlipPlay Updated\"\n}" }, "url": "{{base_url}}/media/{{media_id}}" }
+        },
+        {
+          "name": "PATCH - Media tidak ditemukan (failure 404)",
+          "request": { "method": "PATCH", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"title\": \"Tidak akan disimpan\"\n}" }, "url": "{{base_url}}/media/999999" }
         },
         {
           "name": "GET - Media tidak ditemukan (failure 404)",
@@ -75,6 +113,7 @@
     },
     {
       "name": "Koleksi Pengguna",
+      "description": "Uji koleksi sebelum menghapus media. Attach berhasil hanya pertama kali; permintaan kedua harus ditolak sebagai duplikat.",
       "item": [
         {
           "name": "GET - Lihat koleksi pengguna",
@@ -89,6 +128,14 @@
           "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/users/{{user_id}}/collection/{{media_id}}" }
         },
         {
+          "name": "GET - Pastikan media tampil di koleksi",
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/users/{{user_id}}/collection" }
+        },
+        {
+          "name": "GET - Pastikan relasi pengguna tampil pada detail media",
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/media/{{media_id}}" }
+        },
+        {
           "name": "DELETE - Hapus media dari koleksi (happy path)",
           "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/users/{{user_id}}/collection/{{media_id}}" }
         },
@@ -99,6 +146,10 @@
         {
           "name": "DELETE - Hapus media (happy path; paling akhir)",
           "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/media/{{media_id}}" }
+        },
+        {
+          "name": "DELETE - Media tidak ditemukan (failure 404)",
+          "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/media/999999" }
         }
       ]
     }

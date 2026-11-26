@@ -43,13 +43,40 @@ Untuk melihat daftar endpoint API, buka jendela PowerShell kedua di folder proje
 
 ### Mencoba lewat Postman
 
-1. Impor file `postman/FlipPlay API.postman_collection.json` ke Postman.
-2. Pastikan server Laravel masih berjalan. Nilai `base_url` bawaan collection adalah `http://127.0.0.1:8000/api`.
-3. Jalankan request berurutan. Request tambah media membuat judul unik dan menyimpan ID-nya ke `media_id` secara otomatis.
-4. Jalankan folder **Koleksi Pengguna** untuk mencoba melihat koleksi, attach, attach duplikat, dan detach.
-5. Request hapus media diletakkan paling akhir. Collection memeriksa status yang diharapkan untuk setiap skenario.
+1. Jalankan server dengan `php artisan serve` dan biarkan terminalnya tetap terbuka.
+2. Di Postman, pilih **Import**, lalu pilih `postman/FlipPlay API.postman_collection.json`.
+3. Buka collection **FlipPlay API**. Pastikan variable `base_url` bernilai `http://127.0.0.1:8000/api` dan `user_id` bernilai `1` (ID pengguna hasil seed). Variable `media_id` dan `test_title` akan diisi selama pengujian.
+4. Pilih **Run collection** lalu jalankan request sesuai urutan. Jangan mengubah urutan; request bergantung pada media yang dibuat pada awal alur.
+5. Buka tab **Test Results**. Setiap request harus berstatus **PASS**. Collection memeriksa status HTTP, bentuk error JSON, dan keberadaan media serta relasi pengguna setelah attach.
 
-Untuk mengetes validasi gagal, request harus mengirim header `Accept: application/json`; contoh failure path pada collection sudah memakai header tersebut.
+Request tambah media membuat judul unik dengan waktu saat ini dan otomatis menyimpan ID response ke variable `media_id`. Karena itu collection dapat dijalankan ulang tanpa bentrok judul. Request hapus media berada paling akhir dan hanya menghapus media percobaan yang baru dibuat, bukan data seed.
+
+Format response gagal yang dicek: validasi `422` berisi object `errors` (misalnya `errors.title`); attach duplikat `409` berisi `message`; resource yang tidak ditemukan `404` juga berisi `message`. Respons sukses umumnya memiliki `data`, sedangkan delete media yang sukses mengembalikan `204` tanpa body.
+
+#### Daftar skenario dan hasil yang diharapkan
+
+| Urutan | Request | Tujuan | Hasil yang diperiksa |
+| ---: | --- | --- | --- |
+| 1 | GET daftar media dengan `search=Pelangi` | Uji index dan filter judul | `200`; response memiliki `data` |
+| 2 | POST media baru | Uji store film/game dengan input valid | `201`; ID tersimpan ke `media_id` |
+| 3 | GET detail media baru | Uji show | `200`; response memiliki `data` dan field `users` |
+| 4 | POST dengan judul kosong | Uji field wajib | `422`; `errors` tidak kosong |
+| 5 | POST film tanpa durasi | Uji validasi khusus tipe film | `422`; error validasi dikirim sebagai JSON |
+| 6 | POST judul `Laskar Pelangi` | Uji judul duplikat | `422`; `errors.title` tersedia |
+| 7 | PATCH media baru | Uji update sebagian dengan judul baru | `200`; response memiliki `data` |
+| 8 | PATCH ID `999999` | Uji update media yang tidak ada | `404`; response memiliki `message` |
+| 9 | GET ID `999999` | Uji show media yang tidak ada | `404`; response memiliki `message` |
+| 10 | GET koleksi pengguna | Uji index koleksi | `200`; response memiliki `data` |
+| 11 | POST attach media baru | Uji custom action tambah koleksi | `201`; response memiliki `data` |
+| 12 | POST attach media yang sama lagi | Pastikan pasangan pivot tidak rangkap | `409`; response menjelaskan media sudah ada |
+| 13 | GET koleksi setelah attach | Pastikan media masuk ke koleksi | `200`; pemeriksaan otomatis mencari `media_id` di koleksi |
+| 14 | GET detail setelah attach | Pastikan eager-loaded relation terlihat | `200`; pemeriksaan otomatis mencari `user_id` pada `users` |
+| 15 | DELETE attach media | Uji custom action detach | `200`; media dilepas dari koleksi |
+| 16 | DELETE attach yang sama lagi | Uji detach saat relasi tidak ada | `404`; response memiliki `message` |
+| 17 | DELETE media percobaan | Uji destroy | `204`; response kosong |
+| 18 | DELETE ID `999999` | Uji destroy media yang tidak ada | `404`; response memiliki `message` |
+
+Request yang mengirim JSON menyertakan header `Accept: application/json` dan `Content-Type: application/json`. Kalau status berbeda, periksa server masih berjalan, database sudah di-seed, serta variable `base_url` dan `user_id` benar. Detail pemeriksaan otomatis ada pada tab **Scripts** di collection.
 
 ## Endpoint API
 
