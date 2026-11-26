@@ -1,39 +1,80 @@
 # FlipPlay API Demo
 
-Prototype REST API FlipPlay berbasis Laravel 12 untuk mengelola media (film/game) dan koleksi pengguna. Kode simulasi OOP dari Modul 3 tetap disimpan di `legacy/` sebagai referensi.
+Prototype REST API FlipPlay menggunakan Laravel 12 untuk mengelola media film/game dan koleksi media pengguna. Entitas `Media` dan `User` berasal dari simulasi OOP Modul 3; versi terminal awal tetap disimpan di folder `legacy/` sebagai referensi.
 
-## Menjalankan project
+## Cara menjalankan project
 
-Persyaratan: PHP 8.2+, Composer, dan ekstensi PDO SQLite atau MySQL.
+### Persyaratan
 
-```bash
+- PHP 8.2 atau lebih baru.
+- Composer 2.
+- Ekstensi `pdo_sqlite` aktif untuk konfigurasi bawaan SQLite. Untuk MySQL, aktifkan `pdo_mysql` dan siapkan database MySQL.
+- Postman untuk mencoba endpoint.
+
+Pastikan PHP dan Composer terbaca di terminal:
+
+```powershell
+php -v
+composer --version
+```
+
+### Instalasi pertama kali
+
+Buka PowerShell pada folder project, lalu jalankan:
+
+```powershell
 composer install
-copy .env.example .env
+Copy-Item .env.example .env
 php artisan key:generate
 php artisan migrate --seed
+```
+
+Jika file `.env` sudah ada, lewati perintah `Copy-Item` agar konfigurasi lokal tidak tertimpa. Konfigurasi bawaan memakai SQLite; Laravel menyiapkan file database saat migration pertama dijalankan.
+
+Seeder membuat satu pengguna demo (`demo@flipplay.test`, ID awal `1`) dan tiga media contoh. Seeder aman dijalankan ulang karena memakai `firstOrCreate`.
+
+### Menyalakan server
+
+Jalankan dari folder project:
+
+```powershell
 php artisan serve
 ```
 
-Di PowerShell, `copy .env.example .env` bisa dijalankan sebagai `Copy-Item .env.example .env`. Aplikasi memakai SQLite secara default.
+Biarkan terminal server tetap terbuka. URL dasar API adalah `http://127.0.0.1:8000/api`. Perintah `npm install` tidak diperlukan untuk demo ini karena yang dijalankan adalah API.
 
-Data seed: pengguna `demo@flipplay.test` (ID 1) dan tiga contoh media. Seed dapat dijalankan berulang kali tanpa menggandakan data.
+Untuk memastikan endpoint sudah terdaftar:
 
-## Endpoint
+```powershell
+php artisan route:list --path=api
+```
 
-Semua endpoint menggunakan awalan `/api` dan menerima/mengembalikan JSON.
+### Mencoba lewat Postman
 
-| Method | Endpoint | Fungsi |
+1. Impor file `postman/FlipPlay API.postman_collection.json` ke Postman.
+2. Pastikan server Laravel masih berjalan. Nilai `base_url` bawaan collection adalah `http://127.0.0.1:8000/api`.
+3. Jalankan request berurutan. Request tambah media membuat judul unik dan menyimpan ID-nya ke `media_id` secara otomatis.
+4. Jalankan folder **Koleksi Pengguna** untuk mencoba melihat koleksi, attach, attach duplikat, dan detach.
+5. Request hapus media diletakkan paling akhir. Collection memeriksa status yang diharapkan untuk setiap skenario.
+
+Untuk mengetes validasi gagal, request harus mengirim header `Accept: application/json`; contoh failure path pada collection sudah memakai header tersebut.
+
+## Endpoint API
+
+Semua endpoint menerima dan mengembalikan JSON. Laravel menambahkan prefix `/api` secara otomatis.
+
+| Method | Endpoint | Fungsi dan status berhasil |
 | --- | --- | --- |
-| GET | `/api/media?search=judul` | Daftar media, pencarian judul, pagination |
-| GET | `/api/media/{id}` | Detail media dan pengguna pemilik di koleksi |
-| POST | `/api/media` | Tambah media |
-| PATCH | `/api/media/{id}` | Ubah media |
-| DELETE | `/api/media/{id}` | Hapus media (204) |
-| GET | `/api/users/{user}/collection` | Lihat koleksi seorang pengguna |
-| POST | `/api/users/{user}/collection/{media}` | Tambahkan media ke koleksi (201; duplikat 409) |
-| DELETE | `/api/users/{user}/collection/{media}` | Hapus media dari koleksi (media tidak ada: 404) |
+| GET | `/api/media?search=judul` | Daftar media, pencarian judul, dan pagination (`200`) |
+| GET | `/api/media/{id}` | Detail media beserta pengguna yang menyimpannya (`200`) |
+| POST | `/api/media` | Tambah media (`201`) |
+| PUT/PATCH | `/api/media/{id}` | Perbarui media (`200`) |
+| DELETE | `/api/media/{id}` | Hapus media (`204`) |
+| GET | `/api/users/{user}/collection` | Lihat koleksi pengguna (`200`) |
+| POST | `/api/users/{user}/collection/{media}` | Tambah media ke koleksi (`201`; jika duplikat `409`) |
+| DELETE | `/api/users/{user}/collection/{media}` | Hapus media dari koleksi (`200`; jika bukan anggota `404`) |
 
-Contoh body tambah film:
+### Contoh request tambah film
 
 ```json
 {
@@ -45,21 +86,51 @@ Contoh body tambah film:
 }
 ```
 
-Untuk game, isi `platform` (contoh `PC / Switch`). `title` wajib unik. Request dengan input yang tidak valid mendapat status `422` beserta rincian `errors`.
+Untuk game, gunakan `"type": "game"` dan isi `platform`, misalnya `"PC / Switch"`. Judul wajib diisi dan tidak boleh duplikat. Field film wajib memiliki `duration_minutes`, sedangkan field game wajib memiliki `platform`. Input yang gagal validasi menghasilkan HTTP `422` dengan daftar error.
 
-## Pengujian manual di Postman
+Contoh pencarian: `GET http://127.0.0.1:8000/api/media?search=Pelangi`.
 
-Impor `postman/FlipPlay API.postman_collection.json`, jalankan server lokal, dan gunakan collection variable `base_url` (default `http://127.0.0.1:8000/api`). Jalankan request sesuai urutan yang tersedia: request tambah media akan mengisi `media_id` otomatis, lalu skenario koleksi menguji attach, duplikat, dan detach. Request hapus media berada paling akhir agar tidak menghapus data sebelum skenario koleksi selesai.
+## Catatan persiapan tanya-jawab aslab
 
-Collection mencakup happy path dan failure path: field wajib kosong, judul duplikat, resource tidak ditemukan, tambah media dua kali ke koleksi, dan hapus media yang bukan anggota koleksi. Seluruh request memakai header `Accept: application/json` agar error validasi tampil sebagai JSON `422`.
+**Apa fungsi project ini?**
+Mengubah simulasi FlipPlay berbasis terminal dari Modul 3 menjadi REST API. Client seperti Postman dapat melakukan CRUD media serta mengatur koleksi milik pengguna.
 
-## Pemetaan rubrik penilaian
+**Apa itu REST API dan mengapa endpoint memakai method berbeda?**
+REST API menyediakan akses resource melalui HTTP. `GET` membaca data, `POST` membuat atau menjalankan aksi tambah, `PATCH/PUT` memperbarui, dan `DELETE` menghapus. Status HTTP menunjukkan hasil operasi.
 
-- **CRUD + status code:** `app/Http/Controllers/Api/MediaController.php` dan route resource di `routes/api.php`.
-- **Relasi dan eager loading:** `app/Models/Media.php`, `app/Models/User.php`, migration tabel media/pivot, serta `with('users')` pada index/detail.
-- **Validasi + 422:** `app/Http/Requests/StoreMediaRequest.php` dan `UpdateMediaRequest.php`.
-- **API Resource + whenLoaded:** `app/Http/Resources/MediaResource.php` dan `UserResource.php`.
+**Mengapa ada tabel pivot `media_user`?**
+Relasinya many-to-many: seorang pengguna dapat menyimpan banyak media, dan satu media dapat disimpan banyak pengguna. Tabel pivot menyimpan pasangan `user_id` dan `media_id`; foreign key memakai cascade delete dan pasangan tersebut dibuat unik agar tidak rangkap.
+
+**Bagaimana relasi Eloquent dibuat?**
+`User::mediaCollection()` dan `Media::users()` sama-sama memakai `belongsToMany()` dengan tabel pivot `media_user`.
+
+**Apa kegunaan eager loading?**
+`with('users')` memuat pengguna terkait bersama data media, sehingga API tidak menjalankan query berulang untuk setiap media (masalah N+1). Relasi baru ditampilkan oleh Resource jika sudah dimuat.
+
+**Mengapa menggunakan Form Request dan API Resource?**
+Form Request memisahkan aturan validasi dari controller dan Laravel mengembalikan `422` otomatis untuk input JSON yang gagal. API Resource menjaga bentuk response JSON konsisten dan memakai `whenLoaded` untuk relasi.
+
+**Bagaimana validasi judul duplikat bekerja saat update?**
+Saat membuat media, judul harus unik. Saat update, validasi mengabaikan ID media yang sedang diperbarui sehingga judulnya boleh tetap sama, tetapi tidak boleh memakai judul milik media lain.
+
+**Apa custom action di luar CRUD?**
+`POST /users/{user}/collection/{media}` melakukan attach media ke koleksi. `DELETE` pada endpoint yang sama melakukan detach tanpa menghapus data media. Attach duplikat menghasilkan `409`.
+
+**Bagaimana skenario berhasil dan gagal diuji?**
+Collection Postman memuat request CRUD dan koleksi, termasuk judul kosong/duplikat (`422`), ID yang tidak ditemukan (`404`), attach berhasil (`201`), attach duplikat (`409`), detach berhasil, dan delete media (`204`). Setiap request memiliki pemeriksaan status yang diharapkan.
+
+**Apakah endpoint koleksi memerlukan login?**
+Belum. Ini prototype pembelajaran; pengguna dipilih melalui ID di URL agar relasi attach/detach dapat didemokan. Untuk aplikasi produksi, endpoint perlu dilindungi autentikasi dan otorisasi.
+
+## Peta file menurut rubrik
+
+- **CRUD dan status response:** `app/Http/Controllers/Api/MediaController.php`.
+- **Migration, model, relasi, dan eager loading:** `database/migrations/`, `app/Models/Media.php`, `app/Models/User.php`, dan `MediaController.php`.
+- **Form Request validation / 422:** `app/Http/Requests/StoreMediaRequest.php` dan `UpdateMediaRequest.php`.
+- **API Resource / whenLoaded:** `app/Http/Resources/MediaResource.php` dan `UserResource.php`.
 - **Custom action attach/detach:** `app/Http/Controllers/Api/UserCollectionController.php`.
-- **Postman happy/failure path:** collection di `postman/FlipPlay API.postman_collection.json`.
+- **Pendaftaran semua endpoint:** `routes/api.php`.
+- **Data contoh:** `database/seeders/DatabaseSeeder.php`.
+- **Skenario Postman:** `postman/FlipPlay API.postman_collection.json`.
 
-Untuk melihat seluruh route: `php artisan route:list --path=api`.
+Komentar `// Rubrik ...` di file kode menandai bagian yang berhubungan langsung dengan kriteria penilaian.
