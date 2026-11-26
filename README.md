@@ -6,48 +6,40 @@ Prototype REST API FlipPlay menggunakan Laravel 12 untuk mengelola media film/ga
 
 ### Persyaratan
 
-- PHP 8.2 atau lebih baru.
-- Composer 2.
-- Ekstensi `pdo_sqlite` aktif untuk konfigurasi bawaan SQLite. Untuk MySQL, aktifkan `pdo_mysql` dan siapkan database MySQL.
-- Postman untuk mencoba endpoint.
+- PHP 8.2 atau lebih baru dan Composer 2.
+- Ekstensi `pdo_sqlite` aktif (sudah aktif pada instalasi Laravel lokal). Postman dipakai untuk mencoba endpoint.
 
-Pastikan PHP dan Composer terbaca di terminal:
+### Langkah singkat di Windows
 
-```powershell
-php -v
-composer --version
-```
-
-### Instalasi pertama kali
-
-Buka PowerShell pada folder project, lalu jalankan:
+Buka PowerShell, lalu jalankan perintah berikut satu per satu. Nama perintah tetap mengikuti Composer dan Laravel; keterangan di bawah ini menjelaskan fungsinya dalam Bahasa Indonesia.
 
 ```powershell
+git clone https://github.com/rifkyseptian/Prak_Web.git
+cd Prak_Web
 composer install
 Copy-Item .env.example .env
 php artisan key:generate
 php artisan migrate --seed
-```
-
-Jika file `.env` sudah ada, lewati perintah `Copy-Item` agar konfigurasi lokal tidak tertimpa. Konfigurasi bawaan memakai SQLite; Laravel menyiapkan file database saat migration pertama dijalankan.
-
-Seeder membuat satu pengguna demo (`demo@flipplay.test`, ID awal `1`) dan tiga media contoh. Seeder aman dijalankan ulang karena memakai `firstOrCreate`.
-
-### Menyalakan server
-
-Jalankan dari folder project:
-
-```powershell
 php artisan serve
 ```
 
-Biarkan terminal server tetap terbuka. URL dasar API adalah `http://127.0.0.1:8000/api`. Perintah `npm install` tidak diperlukan untuk demo ini karena yang dijalankan adalah API.
+- `git clone` mengunduh project dari GitHub dan `cd` masuk ke foldernya.
+- `composer install` memasang library Laravel yang diperlukan.
+- `Copy-Item` menyalin pengaturan contoh menjadi pengaturan lokal. Jalankan hanya jika file `.env` belum ada.
+- `key:generate` membuat kunci aplikasi lokal.
+- `migrate --seed` membuat tabel sekaligus mengisi data contoh.
+- `serve` menyalakan server. Biarkan jendela PowerShell ini tetap terbuka.
 
-Untuk memastikan endpoint sudah terdaftar:
+Server berjalan di `http://127.0.0.1:8000`; alamat dasar API adalah `http://127.0.0.1:8000/api`. Project memakai SQLite bawaan, jadi tidak perlu membuat database secara manual. Tidak perlu menjalankan `npm install` untuk demo API ini.
+
+Seeder menyiapkan pengguna `demo@flipplay.test` (ID awal `1`) dan tiga media contoh. Jika project sudah ada di komputer, lewati `git clone`, `cd`, dan `composer install`; jalankan dari folder project:
 
 ```powershell
-php artisan route:list --path=api
+php artisan migrate --seed
+php artisan serve
 ```
+
+Untuk melihat daftar endpoint API, buka jendela PowerShell kedua di folder project dan jalankan `php artisan route:list --path=api`.
 
 ### Mencoba lewat Postman
 
@@ -122,15 +114,17 @@ Collection Postman memuat request CRUD dan koleksi, termasuk judul kosong/duplik
 **Apakah endpoint koleksi memerlukan login?**
 Belum. Ini prototype pembelajaran; pengguna dipilih melalui ID di URL agar relasi attach/detach dapat didemokan. Untuk aplikasi produksi, endpoint perlu dilindungi autentikasi dan otorisasi.
 
-## Peta file menurut rubrik
+## Rubrik penilaian dan letak implementasinya
 
-- **CRUD dan status response:** `app/Http/Controllers/Api/MediaController.php`.
-- **Migration, model, relasi, dan eager loading:** `database/migrations/`, `app/Models/Media.php`, `app/Models/User.php`, dan `MediaController.php`.
-- **Form Request validation / 422:** `app/Http/Requests/StoreMediaRequest.php` dan `UpdateMediaRequest.php`.
-- **API Resource / whenLoaded:** `app/Http/Resources/MediaResource.php` dan `UserResource.php`.
-- **Custom action attach/detach:** `app/Http/Controllers/Api/UserCollectionController.php`.
-- **Pendaftaran semua endpoint:** `routes/api.php`.
-- **Data contoh:** `database/seeders/DatabaseSeeder.php`.
-- **Skenario Postman:** `postman/FlipPlay API.postman_collection.json`.
+Berikut enam kriteria dan bobot yang terlihat pada gambar rubrik yang diberikan (jumlah bobot bagian ini 80 poin):
 
-Komentar `// Rubrik ...` di file kode menandai bagian yang berhubungan langsung dengan kriteria penilaian.
+| Kriteria rubrik | Bobot | Letak di project |
+| --- | ---: | --- |
+| CRUD API lengkap (index, show, store, update, destroy) dan status code tepat | 20 | `app/Http/Controllers/Api/MediaController.php`, `routes/api.php` |
+| Eloquent relationship, migration, relasi antartabel, eager loading | 20 | `app/Models/Media.php`, `app/Models/User.php`, `database/migrations/2026_11_26_000000_create_media_table.php`, `database/migrations/2026_11_26_000001_create_media_user_table.php`, `MediaController.php` |
+| Form Request Validation dan penanganan error 422 | 15 | `app/Http/Requests/StoreMediaRequest.php`, `app/Http/Requests/UpdateMediaRequest.php` |
+| API Resource, format response konsisten, termasuk `whenLoaded` | 10 | `app/Http/Resources/MediaResource.php`, `app/Http/Resources/UserResource.php` |
+| Custom action di luar CRUD (attach/detach relasi) | 10 | `app/Http/Controllers/Api/UserCollectionController.php`, `routes/api.php` |
+| Pengujian endpoint happy path dan failure path menggunakan Postman | 5 | `postman/FlipPlay API.postman_collection.json` |
+
+Data demo dibuat oleh `database/seeders/DatabaseSeeder.php`. Komentar `// Rubrik ...` dalam file kode menandai bagian implementasi yang terkait dengan tiap kriteria di atas.
